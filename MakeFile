@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -Wall -Wextra
+
+all: cine
+
+cine: main.c
+	$(CC) $(CFLAGS) main.c -o cine
+
+clean:
+	rm -f cine *.dat
