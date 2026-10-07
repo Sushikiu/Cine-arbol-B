@@ -1,0 +1,220 @@
+/*
+==================================================================================
+||                                  Arbol B                                      ||
+||                              Ortega Ulloa Susana                              ||
+||                              16/octubre/2024                                  ||
+==================================================================================
+
+Descripcion:
+- Programa que simula una base de datos de un cine utilizando un arbol B y archivos binarios.
+- Las salas y espectadores se almacenan en un archivo binario.
+- El arbol B almacena las claves y posiciones en el archivo de las salas.
+
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+// Incluimos las librerias de funciones
+#include "funciones_salas.h"
+#include "funciones_archivos.h"
+
+int main()
+{
+    FILE *archivoDatos = NULL;
+    FILE *archivoArbol = NULL;
+    int opc = -1;
+    char pelicula[40], nombre[30];
+    struct salas *nuevasala = NULL;
+    struct cliente *nuevoespectador = NULL;
+    struct hoja *raizArbolB = NULL;
+
+    // Abrimos el archivo de datos (salas y espectadores)
+    archivoDatos = fopen("cine.dat", "r+b");
+    if (archivoDatos == NULL)
+    {
+        archivoDatos = fopen("cine.dat", "w+b");
+        if (archivoDatos == NULL)
+        {
+            printf("No se pudo crear el archivo de datos.\n");
+            return -1;
+        }
+    }
+
+    // Abrimos el archivo del arbol B
+    archivoArbol = fopen("arbolB.dat", "r+b");
+    if (archivoArbol != NULL)
+    {
+        // Si el archivo existe, cargamos el arbol B desde el archivo
+        raizArbolB = cargarArbolBDesdeArchivo(archivoArbol);
+        fclose(archivoArbol);
+    }
+    else
+    {
+        // Si no existe, inicializamos el arbol B
+        raizArbolB = NULL;
+    }
+
+    while (opc != 0)
+    {
+        printf("\n\n\tMenu:\n");
+        printf("1. Agregar pelicula\n");
+        printf("2. Eliminar pelicula\n");
+        printf("3. Ver espectadores en una pelicula\n");
+        printf("4. Agregar espectador\n");
+        printf("5. Eliminar espectador\n");
+        printf("6. Buscar espectador\n");
+        printf("0. Salir\n");
+
+        printf("Seleccione una opcion: ");
+        fflush(stdin);
+        if (scanf("%d", &opc) != 1)
+        {
+            printf("Entrada no valida, por favor ingrese un numero.\n");
+            fflush(stdin);
+            continue;
+        }
+
+        switch (opc)
+        {
+        case 1: // Agregar pelicula
+            nuevasala = agregarSala();
+            if (nuevasala != NULL)
+            {
+                // Guardar la sala en el archivo y obtener la posicion
+                long posicionSala = guardarSalaEnArchivo(archivoDatos, nuevasala);
+
+                // Crear un nuevo registro para el arbol B
+                struct registro nuevoRegistro;
+                strcpy(nuevoRegistro.clave, nuevasala->clave);
+                nuevoRegistro.posicionArchivo = posicionSala;
+
+                // Insertar el registro en el arbol B
+                raizArbolB = insertarEnArbolB(raizArbolB, nuevoRegistro);
+
+                printf("Pelicula agregada exitosamente.\n");
+                free(nuevasala); // Liberamos la memoria de la sala
+            }
+            break;
+
+        case 2: // Eliminar pelicula
+            printf("\nDime la clave de la pelicula que quieres eliminar: ");
+            fflush(stdin);
+            gets(pelicula);
+            convertirMayusculas(pelicula);
+
+            // Eliminar la sala del arbol B y del archivo
+            raizArbolB = eliminarDeArbolB(raizArbolB, pelicula, archivoDatos);
+            break;
+
+        case 3: // Ver espectadores en una pelicula
+            if (raizArbolB == NULL)
+            {
+                printf("\nNo hay peliculas registradas.\n");
+                break;
+            }
+            printf("\nDime la clave de la pelicula para mostrarte los espectadores: ");
+            fflush(stdin);
+            gets(pelicula);
+            convertirMayusculas(pelicula);
+
+            // Buscar la sala en el arbol B
+            nuevasala = buscarEnArbolB(raizArbolB, pelicula, archivoDatos);
+            if (nuevasala != NULL)
+            {
+                imprimirSala(nuevasala);
+                liberarSala(nuevasala); // Liberar memoria despues de usarla
+            }
+            else
+            {
+                printf("\nPelicula no encontrada.\n");
+            }
+            break;
+
+        case 4: // Agregar espectador
+            printf("\nDime la clave de la pelicula a la que quieres agregar un espectador: ");
+            fflush(stdin);
+            gets(pelicula);
+            convertirMayusculas(pelicula);
+
+            nuevasala = buscarEnArbolB(raizArbolB, pelicula, archivoDatos);
+            if (nuevasala != NULL)
+            {
+                nuevoespectador = agregarEspectador(nuevasala);
+                if (nuevoespectador != NULL)
+                {
+                    // Actualizar la sala en el archivo
+                    actualizarSalaEnArchivo(archivoDatos, nuevasala);
+                    printf("Espectador agregado exitosamente.\n");
+                }
+                liberarSala(nuevasala);
+            }
+            else
+            {
+                printf("\nPelicula no encontrada.\n");
+            }
+            break;
+
+        case 5: // Eliminar espectador
+            printf("\nDime la clave de la pelicula de donde quieres eliminar un espectador: ");
+            fflush(stdin);
+            gets(pelicula);
+            convertirMayusculas(pelicula);
+
+            nuevasala = buscarEnArbolB(raizArbolB, pelicula, archivoDatos);
+            if (nuevasala != NULL)
+            {
+                printf("\nDime el nombre del espectador que quieres eliminar: ");
+                fflush(stdin);
+                gets(nombre);
+                convertirMayusculas(nombre);
+
+                eliminarEspectador(nuevasala, nombre);
+
+                // Actualizar la sala en el archivo
+                actualizarSalaEnArchivo(archivoDatos, nuevasala);
+                liberarSala(nuevasala);
+            }
+            else
+            {
+                printf("\nPelicula no encontrada.\n");
+            }
+            break;
+
+        case 6: // Buscar espectador
+            printf("\nDime el nombre del espectador que quieres buscar: ");
+            fflush(stdin);
+            gets(nombre);
+            convertirMayusculas(nombre);
+
+            buscarEspectadorEnTodasLasSalas(raizArbolB, nombre, archivoDatos);
+            break;
+
+        case 0:
+            printf("\n\tRegresa pronto al cine\n");
+            break;
+
+        default:
+            printf("Opcion no valida.\n");
+            break;
+        }
+    }
+
+    // Guardamos el arbol B en el archivo
+    archivoArbol = fopen("arbolB.dat", "w+b");
+    if (archivoArbol != NULL)
+    {
+        guardarArbolBEnArchivo(archivoArbol, raizArbolB);
+        fclose(archivoArbol);
+    }
+
+    // Cerramos el archivo de datos
+    fclose(archivoDatos);
+
+    // Liberamos la memoria del arbol B
+    liberarArbolB(raizArbolB);
+
+    return 0;
+}
